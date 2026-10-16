@@ -1,33 +1,192 @@
-Drone Flight Status
+html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Dron Clima Tracker</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #161b26;
+            --text-main: #ffffff;
+            --text-muted: #808a9d;
+            --safe: #10b981;
+            --danger: #ef4444;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 400px;
+            width: 100%;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            margin: 0 0 5px 0;
+        }
+        .header p {
+            color: var(--text-muted);
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        .status-card {
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            border: 2px solid transparent;
+        }
+        .status-icon {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+        .status-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .status-desc {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .metric-card {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+        .safe-border { border-color: var(--safe); }
+        .danger-border { border-color: var(--danger); }
+    </style>
+</head>
+<body>
 
-Cabo San Lucas • DJI Mavic Air 1
+    <div class="container">
+        <div class="header">
+            <h1>Mavic Air 1 Fly Status</h1>
+            <p>Cabo San Lucas — Monitoreo en Vivo</p>
+        </div>
 
-❌
-No Recomendado Volar
+        <div id="statusCard" class="status-card">
+            <div id="statusIcon" class="status-icon">🔄</div>
+            <div id="statusTitle" class="status-title">Cargando...</div>
+            <div id="statusDesc" class="status-desc">Consultando satélites meteorológicos en tiempo real...</div>
+        </div>
 
-Actualizado hace unos instantes
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Viento</div>
+                <div id="windValue" class="metric-value">-- km/h</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Lluvia</div>
+                <div id="rainValue" class="metric-value">-- %</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Temperatura</div>
+                <div id="tempValue" class="metric-value">-- °C</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Estado Cielo</div>
+                <div id="skyValue" class="metric-value">--</div>
+            </div>
+        </div>
+    </div>
 
-Viento Actual
+    <script>
+        // Coordenadas fijas de Cabo San Lucas
+        const LAT = 22.8905;
+        const LON = -109.9167;
 
-24 km/h
+        async function consultarClima() {
+            try {
+                const url = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,relative_humidity,precipitation,weather_code,wind_speed_10m&forecast_days=1`;
+                const respuesta = await fetch(url);
+                const datos = await respuesta.json();
+                
+                const clima = datos.current;
+                const viento = Math.round(clima.wind_speed_10m); // km/h
+                const lluvia = clima.precipitation; // mm en la última hora
+                const temp = Math.round(clima.temperature_2m);
+                const codigoCielo = clima.weather_code;
 
-Límite Mavic: 29 km/h
+                // Actualizar interfaz con los valores reales
+                document.getElementById('windValue').innerText = `${viento} km/h`;
+                document.getElementById('rainValue').innerText = lluvia > 0 ? `Lluvia Activa` : `0%`;
+                document.getElementById('tempValue').innerText = `${temp} °C`;
+                
+                // Traducir códigos básicos de Open-Meteo
+                let estadoCielo = "Despejado";
+                if(codigoCielo >= 1 && codigoCielo <= 3) estadoCielo = "Parcialmente Nublado";
+                if(codigoCielo >= 45 && codigoCielo <= 48) estadoCielo = "Niebla";
+                if(codigoCielo >= 51 && codigoCielo <= 67) estadoCielo = "Llovizna/Lluvia";
+                if(codigoCielo >= 80) estadoCielo = "Tormenta";
+                document.getElementById('skyValue').innerText = estadoCielo;
 
-Prob. Lluvia
+                // Evaluar si es seguro para el Mavic Air 1
+                // Límite viento: 29 km/h. Límite lluvia: 0 mm
+                const card = document.getElementById('statusCard');
+                const icon = document.getElementById('statusIcon');
+                const title = document.getElementById('statusTitle');
+                const desc = document.getElementById('statusDesc');
 
-45%
+                if (viento < 27 && lluvia === 0 && codigoCielo < 51) {
+                    card.className = "status-card safe-border";
+                    icon.innerText = "✅";
+                    title.innerText = "¡Listo para Volar!";
+                    title.style.color = "var(--safe)";
+                    desc.innerText = `Las condiciones en Cabo son óptimas. El viento está a ${viento} km/h, muy por debajo del límite de resistencia de tu Mavic Air (29 km/h).`;
+                } else {
+                    card.className = "status-card danger-border";
+                    icon.innerText = "❌";
+                    title.innerText = "No Volar";
+                    title.style.color = "var(--danger)";
+                    
+                    let razones = [];
+                    if(viento >= 27) razones.push(`vientos peligrosos (${viento} km/h)`);
+                    if(lluvia > 0 || codigoCielo >= 51) razones.push(`presencia de humedad/lluvia`);
+                    
+                    desc.innerText = `Vuelo no recomendado en este momento debido a: ${razones.join(' y ')}. Evita comprometer los motores de tu dron.`;
+                }
 
-Riesgo de tormentas
+            } catch (error) {
+                document.getElementById('statusTitle').innerText = "Error";
+                document.getElementById('statusDesc').innerText = "No se pudieron obtener los datos meteorológicos en tiempo real.";
+            }
+        }
 
-Mañana (Sábado)
-
-Ventana ideal de vuelo
-
-✅
-Mañana (6 AM - 11 AM) Excelente (11 km/h vto)
-Tarde (12 PM - 5 PM) Seguro (14 km/h vto)
-🛠️ Nota de desarrollo:
-
-Este archivo es una plantilla web estática. Para que actualice los datos climáticos en tiempo real de forma automática cada día, deberás conectar este código a una API pública (como OpenWeatherMap o WeatherAPI) mediante un script simple de JavaScript (`fetch`).
-
-Diseñado para iPhone • DJI Mavic Air 1 SafeFlight
+        // Ejecutar al abrir la app
+        consultarClima();
+    </script>
+</body>
+</html>
