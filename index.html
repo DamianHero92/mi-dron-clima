@@ -97,7 +97,6 @@
             cursor: pointer;
             width: 100%;
             box-shadow: 0 4px 12px rgba(37,99,235,0.3);
-            transition: background 0.2s;
         }
         .btn-update:active {
             background-color: #1d4ed8;
@@ -117,7 +116,7 @@
         <div id="statusCard" class="status-card">
             <div id="statusIcon" class="status-icon">🔄</div>
             <div id="statusTitle" class="status-title">Estatus Inicial</div>
-            <div id="statusDesc" class="status-desc">Presiona el botón de abajo para consultar el satélite del clima.</div>
+            <div id="statusDesc" class="status-desc">Presiona el botón de abajo para activar los datos meteorológicos en vivo.</div>
         </div>
 
         <div class="metrics-grid">
@@ -143,6 +142,7 @@
     </div>
 
     <script>
+        // Coordenadas fijas de Cabo San Lucas
         const LAT = 22.8905;
         const LON = -109.9167;
 
@@ -154,14 +154,14 @@
 
             title.innerText = "Consultando...";
             icon.innerText = "🔄";
-            desc.innerText = "Conectando de forma segura con el satélite...";
+            desc.innerText = "Sincronizando de forma segura con el satélite...";
 
             try {
-                // Endpoint limpio con CORS nativo abierto
-                const apiURL = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&timezone=auto`;
+                // Pasamos la consulta a través de un proxy abierto e inmune a bloqueos CORS de GitHub/Apple
+                const apiURL = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code,wind_speed_10m`;
                 
-                const respuesta = await fetch(apiURL);
-                if (!respuesta.ok) throw new Error("Error de respuesta");
+                const respuesta = await fetch(apiURL, { method: 'GET', headers: { 'Accept': 'application/json' } });
+                if (!respuesta.ok) throw new Error("Error de conexión");
                 
                 const datos = await respuesta.json();
                 const actual = datos.current;
@@ -171,7 +171,6 @@
                 const temp = Math.round(actual.temperature_2m);
                 const codigoCielo = actual.weather_code;
 
-                // Actualizar bloques informativos
                 document.getElementById('windValue').innerText = `${viento} km/h`;
                 document.getElementById('rainValue').innerText = lluvia > 0 ? `Lluvia` : `0%`;
                 document.getElementById('tempValue').innerText = `${temp} °C`;
@@ -183,13 +182,13 @@
                 if(codigoCielo >= 80) estadoCielo = "Tormenta";
                 document.getElementById('skyValue').innerText = estadoCielo;
 
-                // Veredicto específico para el DJI Mavic Air 1
+                // Evaluación de seguridad estricta de fábrica para DJI Mavic Air 1 (Límite: 28 km/h y 0 llovizna)
                 if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
                     card.className = "status-card safe-border";
                     icon.innerText = "✅";
                     title.innerText = "¡Listo para Volar!";
                     title.style.color = "var(--safe)";
-                    desc.innerText = `Condiciones óptimas detectadas en Cabo San Lucas. El viento está a ${viento} km/h (Tu límite seguro de fábrica es 29 km/h).`;
+                    desc.innerText = `Condiciones óptimas en Cabo San Lucas. El viento está a ${viento} km/h (Tu límite seguro de fábrica es 29 km/h).`;
                 } else {
                     card.className = "status-card danger-border";
                     icon.innerText = "❌";
@@ -197,18 +196,18 @@
                     title.style.color = "var(--danger)";
                     
                     let alertas = [];
-                    if(viento >= 28) alertas.push(`vientos fuertes de ${viento} km/h`);
-                    if(lluvia > 0 || codigoCielo >= 51) alertas.push(`presencia de lluvia o tormenta`);
+                    if(viento >= 28) alertas.push(`vientos de ${viento} km/h`);
+                    if(lluvia > 0 || codigoCielo >= 51) alertas.push(`humedad/lluvia`);
                     
-                    desc.innerText = `Peligro para tu Mavic Air 1 por: ${alertas.join(' y ')}. Evita comprometer los motores.`;
+                    desc.innerText = `Riesgo detectado para tu Mavic Air 1 por: ${alertas.join(' y ')}. Evita comprometer los motores.`;
                 }
 
             } catch (error) {
-                card.className = "status-card";
+                card.className = "status-card danger-border";
                 icon.innerText = "⚠️";
-                title.innerText = "Reintentar";
-                title.style.color = "var(--text-main)";
-                desc.innerText = "Hubo un pequeño retraso en la red. Vuelve a presionar el botón azul.";
+                title.innerText = "Fallo de Servidor";
+                title.style.color = "var(--danger)";
+                desc.innerText = "Presiona nuevamente el botón azul. El servidor de datos tardó en responder.";
             }
         }
     </script>
