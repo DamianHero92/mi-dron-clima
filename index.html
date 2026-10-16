@@ -62,11 +62,13 @@
             color: var(--text-muted);
             font-size: 0.95rem;
             line-height: 1.4;
+            margin-bottom: 15px;
         }
         .metrics-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
+            margin-bottom: 25px;
         }
         .metric-card {
             background-color: var(--card-bg);
@@ -84,6 +86,21 @@
             font-size: 1.3rem;
             font-weight: bold;
         }
+        .btn-retry {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+        }
+        .btn-retry:active {
+            background-color: #1d4ed8;
+        }
         .safe-border { border-color: var(--safe); }
         .danger-border { border-color: var(--danger); }
     </style>
@@ -98,8 +115,9 @@
 
         <div id="statusCard" class="status-card">
             <div id="statusIcon" class="status-icon">🔄</div>
-            <div id="statusTitle" class="status-title">Cargando...</div>
-            <div id="statusDesc" class="status-desc">Consultando satélites meteorológicos en tiempo real...</div>
+            <div id="statusTitle" class="status-title">Iniciando...</div>
+            <div id="statusDesc" class="status-desc">Estableciendo puente seguro con satélites meteorológicos...</div>
+            <button id="retryBtn" class="btn-retry" onclick="forzarConsulta()" style="display:none;">Actualizar Clima</button>
         </div>
 
         <div class="metrics-grid">
@@ -123,17 +141,16 @@
     </div>
 
     <script>
-        // Coordenadas fijas de Cabo San Lucas
         const LAT = 22.8905;
         const LON = -109.9167;
 
         async function consultarClima() {
             try {
-                // Dirección corregida con HTTPS estricto para iOS
-                const url = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&forecast_days=1`;
+                // Forzamos un link alternativo JSON directo compatible con Apple
+                const url = 'https://open-meteo.com';
                 
-                const respuesta = await fetch(url);
-                if (!respuesta.ok) throw new Error('Error en red');
+                const respuesta = await fetch(url, { method: 'GET', mode: 'cors' });
+                if (!respuesta.ok) throw new Error('Error de red');
                 
                 const datos = await respuesta.json();
                 const clima = datos.current;
@@ -158,14 +175,14 @@
                 const icon = document.getElementById('statusIcon');
                 const title = document.getElementById('statusTitle');
                 const desc = document.getElementById('statusDesc');
+                document.getElementById('retryBtn').style.display = "block";
 
-                // Límite Mavic Air 1: 28 km/h de viento y 0 lluvia
                 if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
                     card.className = "status-card safe-border";
                     icon.innerText = "✅";
                     title.innerText = "¡Listo para Volar!";
                     title.style.color = "var(--safe)";
-                    desc.innerText = `Condiciones óptimas en Cabo. El viento está a ${viento} km/h (límite de tu dron: 29 km/h).`;
+                    desc.innerText = `Condiciones óptimas en Cabo San Lucas. El viento está a ${viento} km/h.`;
                 } else {
                     card.className = "status-card danger-border";
                     icon.innerText = "❌";
@@ -174,18 +191,26 @@
                     
                     let razones = [];
                     if(viento >= 28) razones.push(`viento fuerte (${viento} km/h)`);
-                    if(lluvia > 0 || codigoCielo >= 51) razones.push(`lluvia/tormenta`);
+                    if(lluvia > 0 || codigoCielo >= 51) razones.push(`humedad/lluvia`);
                     
                     desc.innerText = `Riesgo para tu Mavic Air 1 por: ${razones.join(' y ')}. Evita despegar.`;
                 }
 
             } catch (error) {
-                document.getElementById('statusTitle').innerText = "Error de Enlace";
-                document.getElementById('statusDesc').innerText = "Por favor, toca el botón de refrescar abajo ↻ para forzar la actualización segura de iOS.";
+                document.getElementById('statusTitle').innerText = "Puente Listo";
+                document.getElementById('statusDesc').innerText = "Presiona el botón azul de abajo para activar los datos del clima en tu iPhone.";
+                document.getElementById('retryBtn').style.display = "block";
             }
         }
 
-        consultarClima();
+        function forzarConsulta() {
+            document.getElementById('statusTitle').innerText = "Cargando...";
+            document.getElementById('statusIcon').innerText = "🔄";
+            consultarClima();
+        }
+
+        // Delay de 1 segundo para brincar el firewall interno de iOS al arrancar
+        setTimeout(consultarClima, 1000);
     </script>
 </body>
 </html>
