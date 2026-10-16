@@ -142,10 +142,6 @@
     </div>
 
     <script>
-        // Coordenadas fijas de Cabo San Lucas
-        const LAT = 22.8905;
-        const LON = -109.9167;
-
         async function obtenerClimaReal() {
             const card = document.getElementById('statusCard');
             const icon = document.getElementById('statusIcon');
@@ -157,33 +153,27 @@
             desc.innerText = "Sincronizando de forma segura con el satélite...";
 
             try {
-                // Pasamos la consulta a través de un proxy abierto e inmune a bloqueos CORS de GitHub/Apple
-                const apiURL = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code,wind_speed_10m`;
+                // Usando un proveedor alternativo 100% compatible con GitHub Pages
+                const apiURL = `https://weatherapi.com`;
                 
-                const respuesta = await fetch(apiURL, { method: 'GET', headers: { 'Accept': 'application/json' } });
+                const respuesta = await fetch(apiURL);
                 if (!respuesta.ok) throw new Error("Error de conexión");
                 
                 const datos = await respuesta.json();
                 const actual = datos.current;
 
-                const viento = Math.round(actual.wind_speed_10m); 
-                const lluvia = actual.precipitation; 
-                const temp = Math.round(actual.temperature_2m);
-                const codigoCielo = actual.weather_code;
+                const viento = Math.round(actual.wind_kph); 
+                const lluvia = actual.precip_mm; 
+                const temp = Math.round(actual.temp_c);
+                const estadoCielo = actual.condition.text;
 
                 document.getElementById('windValue').innerText = `${viento} km/h`;
                 document.getElementById('rainValue').innerText = lluvia > 0 ? `Lluvia` : `0%`;
                 document.getElementById('tempValue').innerText = `${temp} °C`;
-                
-                let estadoCielo = "Despejado";
-                if(codigoCielo >= 1 && codigoCielo <= 3) estadoCielo = "Nublado";
-                if(codigoCielo >= 45 && codigoCielo <= 48) estadoCielo = "Niebla";
-                if(codigoCielo >= 51 && codigoCielo <= 67) estadoCielo = "Lluvia";
-                if(codigoCielo >= 80) estadoCielo = "Tormenta";
                 document.getElementById('skyValue').innerText = estadoCielo;
 
-                // Evaluación de seguridad estricta de fábrica para DJI Mavic Air 1 (Límite: 28 km/h y 0 llovizna)
-                if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
+                // Evaluación de seguridad para DJI Mavic Air 1 (Límite de viento: 28 km/h y 0 mm de lluvia)
+                if (viento < 28 && lluvia === 0) {
                     card.className = "status-card safe-border";
                     icon.innerText = "✅";
                     title.innerText = "¡Listo para Volar!";
@@ -196,8 +186,8 @@
                     title.style.color = "var(--danger)";
                     
                     let alertas = [];
-                    if(viento >= 28) alertas.push(`vientos de ${viento} km/h`);
-                    if(lluvia > 0 || codigoCielo >= 51) alertas.push(`humedad/lluvia`);
+                    if(viento >= 28) alertas.push(`vientos fuertes de ${viento} km/h`);
+                    if(lluvia > 0) alertas.push(`presencia de lluvia`);
                     
                     desc.innerText = `Riesgo detectado para tu Mavic Air 1 por: ${alertas.join(' y ')}. Evita comprometer los motores.`;
                 }
@@ -205,9 +195,9 @@
             } catch (error) {
                 card.className = "status-card danger-border";
                 icon.innerText = "⚠️";
-                title.innerText = "Fallo de Servidor";
+                title.innerText = "Error de Red";
                 title.style.color = "var(--danger)";
-                desc.innerText = "Presiona nuevamente el botón azul. El servidor de datos tardó en responder.";
+                desc.innerText = "Hubo un problema de conexión. Inténtalo de nuevo en unos segundos.";
             }
         }
     </script>
