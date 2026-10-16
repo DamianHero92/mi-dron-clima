@@ -126,58 +126,65 @@
         const LAT = 22.8905;
         const LON = -109.9167;
 
-        // Nombre de función corregido a minúsculas para cumplir con iOS
-        function actualizarinterfaz(datos) {
-            const clima = datos.current;
-            const viento = Math.round(clima.wind_speed_10m); 
-            const lluvia = clima.precipitation; 
-            const temp = Math.round(clima.temperature_2m);
-            const codigoCielo = clima.weather_code;
-
-            document.getElementById('windValue').innerText = `${viento} km/h`;
-            document.getElementById('rainValue').innerText = lluvia > 0 ? `Lluvia` : `0%`;
-            document.getElementById('tempValue').innerText = `${temp} °C`;
-            
-            let estadoCielo = "Despejado";
-            if(codigoCielo >= 1 && codigoCielo <= 3) estadoCielo = "Nublado";
-            if(codigoCielo >= 45 && codigoCielo <= 48) estadoCielo = "Niebla";
-            if(codigoCielo >= 51 && codigoCielo <= 67) estadoCielo = "Lluvia";
-            if(codigoCielo >= 80) estadoCielo = "Tormenta";
-            document.getElementById('skyValue').innerText = estadoCielo;
-
-            const card = document.getElementById('statusCard');
-            const icon = document.getElementById('statusIcon');
-            const title = document.getElementById('statusTitle');
-            const desc = document.getElementById('statusDesc');
-
-            if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
-                card.className = "status-card safe-border";
-                icon.innerText = "✅";
-                title.innerText = "¡Listo para Volar!";
-                title.style.color = "var(--safe)";
-                desc.innerText = `Las condiciones son perfectas en Cabo San Lucas. El viento está a ${viento} km/h (Tu límite seguro es 29 km/h).`;
-            } else {
-                card.className = "status-card danger-border";
-                icon.innerText = "❌";
-                title.innerText = "No Volar";
-                title.style.color = "var(--danger)";
+        async function consultarClima() {
+            try {
+                const url = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code,wind_speed_10m`;
                 
-                let riesgos = [];
-                if(viento >= 28) riesgos.push(`vientos de ${viento} km/h`);
-                if(lluvia > 0 || codigoCielo >= 51) riesgos.push(`humedad o lluvia`);
+                const respuesta = await fetch(url);
+                if (!respuesta.ok) throw new Error('Error en red');
                 
-                desc.innerText = `Riesgo detectado para tu Mavic Air 1 por: ${riesgos.join(' y ')}. Se recomienda aterrizar o no despegar.`;
+                const datos = await respuesta.json();
+                const clima = datos.current;
+                
+                const viento = Math.round(clima.wind_speed_10m); 
+                const lluvia = clima.precipitation; 
+                const temp = Math.round(clima.temperature_2m);
+                const codigoCielo = clima.weather_code;
+
+                document.getElementById('windValue').innerText = `${viento} km/h`;
+                document.getElementById('rainValue').innerText = lluvia > 0 ? `Lluvia` : `0%`;
+                document.getElementById('tempValue').innerText = `${temp} °C`;
+                
+                let estadoCielo = "Despejado";
+                if(codigoCielo >= 1 && codigoCielo <= 3) estadoCielo = "Nublado";
+                if(codigoCielo >= 45 && codigoCielo <= 48) estadoCielo = "Niebla";
+                if(codigoCielo >= 51 && codigoCielo <= 67) estadoCielo = "Lluvia";
+                if(codigoCielo >= 80) estadoCielo = "Tormenta";
+                document.getElementById('skyValue').innerText = estadoCielo;
+
+                const card = document.getElementById('statusCard');
+                const icon = document.getElementById('statusIcon');
+                const title = document.getElementById('statusTitle');
+                const desc = document.getElementById('statusDesc');
+
+                // Límite Mavic Air 1: Viento < 28km/h y sin lluvia
+                if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
+                    card.className = "status-card safe-border";
+                    icon.innerText = "✅";
+                    title.innerText = "¡Listo para Volar!";
+                    title.style.color = "var(--safe)";
+                    desc.innerText = `Las condiciones son perfectas en Cabo. El viento está a ${viento} km/h.`;
+                } else {
+                    card.className = "status-card danger-border";
+                    icon.innerText = "❌";
+                    title.innerText = "No Volar";
+                    title.style.color = "var(--danger)";
+                    
+                    let riesgos = [];
+                    if(viento >= 28) riesgos.push(`vientos de ${viento} km/h`);
+                    if(lluvia > 0 || codigoCielo >= 51) riesgos.push(`humedad/lluvia`);
+                    
+                    desc.innerText = `Riesgo detectado para tu Mavic Air 1 por: ${riesgos.join(' y ')}. Evita despegar.`;
+                }
+
+            } catch (error) {
+                document.getElementById('statusTitle').innerText = "Error de Red";
+                document.getElementById('statusDesc').innerText = "No se pudo conectar con el servidor meteorológico.";
             }
         }
 
-        function consultarClimaNativo() {
-            const script = document.createElement('script');
-            // Enlace corregido a minúsculas estrictas para evitar bloqueos CORS
-            script.src = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=actualizarinterfaz`;
-            document.body.appendChild(script);
-        }
-
-        window.onload = consultarClimaNativo;
+        // Ejecutar inmediatamente al cargar la página
+        window.onload = consultarClima;
     </script>
 </body>
 </html>
