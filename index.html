@@ -150,35 +150,41 @@
 
             title.innerText = "Consultando...";
             icon.innerText = "🔄";
-            desc.innerText = "Sincronizando de forma segura con el satélite...";
+            desc.innerText = "Sincronizando con el satélite...";
 
             try {
-                // Usando un proveedor alternativo 100% compatible con GitHub Pages
-                const apiURL = `https://weatherapi.com`;
+                // Dirección pública directa sin necesidad de llaves ni tokens
+                const apiURL = "https://open-meteo.com";
                 
                 const respuesta = await fetch(apiURL);
-                if (!respuesta.ok) throw new Error("Error de conexión");
+                if (!respuesta.ok) throw new Error("Error del servidor");
                 
                 const datos = await respuesta.json();
                 const actual = datos.current;
 
-                const viento = Math.round(actual.wind_kph); 
-                const lluvia = actual.precip_mm; 
-                const temp = Math.round(actual.temp_c);
-                const estadoCielo = actual.condition.text;
+                const viento = Math.round(actual.wind_speed_10m); 
+                const lluvia = actual.precipitation; 
+                const temp = Math.round(actual.temperature_2m);
+                const codigoCielo = actual.weather_code;
 
                 document.getElementById('windValue').innerText = `${viento} km/h`;
                 document.getElementById('rainValue').innerText = lluvia > 0 ? `Lluvia` : `0%`;
                 document.getElementById('tempValue').innerText = `${temp} °C`;
+                
+                let estadoCielo = "Despejado";
+                if(codigoCielo >= 1 && codigoCielo <= 3) estadoCielo = "Nublado";
+                if(codigoCielo >= 45 && codigoCielo <= 48) estadoCielo = "Niebla";
+                if(codigoCielo >= 51 && codigoCielo <= 67) estadoCielo = "Lluvia";
+                if(codigoCielo >= 80) estadoCielo = "Tormenta";
                 document.getElementById('skyValue').innerText = estadoCielo;
 
-                // Evaluación de seguridad para DJI Mavic Air 1 (Límite de viento: 28 km/h y 0 mm de lluvia)
-                if (viento < 28 && lluvia === 0) {
+                // Límites específicos de fábrica para el DJI Mavic Air 1
+                if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
                     card.className = "status-card safe-border";
                     icon.innerText = "✅";
                     title.innerText = "¡Listo para Volar!";
                     title.style.color = "var(--safe)";
-                    desc.innerText = `Condiciones óptimas en Cabo San Lucas. El viento está a ${viento} km/h (Tu límite seguro de fábrica es 29 km/h).`;
+                    desc.innerText = `Condiciones óptimas en Cabo San Lucas. El viento está a ${viento} km/h (Límite: 29 km/h).`;
                 } else {
                     card.className = "status-card danger-border";
                     icon.innerText = "❌";
@@ -186,18 +192,18 @@
                     title.style.color = "var(--danger)";
                     
                     let alertas = [];
-                    if(viento >= 28) alertas.push(`vientos fuertes de ${viento} km/h`);
-                    if(lluvia > 0) alertas.push(`presencia de lluvia`);
+                    if(viento >= 28) alertas.push(`vientos de ${viento} km/h`);
+                    if(lluvia > 0 || codigoCielo >= 51) alertas.push(`lluvia/tormenta`);
                     
-                    desc.innerText = `Riesgo detectado para tu Mavic Air 1 por: ${alertas.join(' y ')}. Evita comprometer los motores.`;
+                    desc.innerText = `Riesgo detectado para tu Mavic Air 1 por: ${alertas.join(' y ')}. Evita despegar.`;
                 }
 
             } catch (error) {
                 card.className = "status-card danger-border";
                 icon.innerText = "⚠️";
-                title.innerText = "Error de Red";
+                title.innerText = "Fallo de Servidor";
                 title.style.color = "var(--danger)";
-                desc.innerText = "Hubo un problema de conexión. Inténtalo de nuevo en unos segundos.";
+                desc.innerText = "Ocurrió un problema al procesar los datos. Inténtalo de nuevo.";
             }
         }
     </script>
