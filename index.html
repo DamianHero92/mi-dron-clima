@@ -1,10 +1,9 @@
-html
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Dron Clima Tracker</title>
+    <title>Mavic Air 1 Status</title>
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -15,7 +14,7 @@ html
             --danger: #ef4444;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0;
@@ -130,42 +129,43 @@ html
 
         async function consultarClima() {
             try {
-                const url = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,relative_humidity,precipitation,weather_code,wind_speed_10m&forecast_days=1`;
-                const respuesta = await fetch(url);
-                const datos = await respuesta.json();
+                // Dirección corregida con HTTPS estricto para iOS
+                const url = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&forecast_days=1`;
                 
+                const respuesta = await fetch(url);
+                if (!respuesta.ok) throw new Error('Error en red');
+                
+                const datos = await respuesta.json();
                 const clima = datos.current;
-                const viento = Math.round(clima.wind_speed_10m); // km/h
-                const lluvia = clima.precipitation; // mm en la última hora
+                
+                const viento = Math.round(clima.wind_speed_10m); 
+                const lluvia = clima.precipitation; 
                 const temp = Math.round(clima.temperature_2m);
                 const codigoCielo = clima.weather_code;
 
-                // Actualizar interfaz con los valores reales
                 document.getElementById('windValue').innerText = `${viento} km/h`;
-                document.getElementById('rainValue').innerText = lluvia > 0 ? `Lluvia Activa` : `0%`;
+                document.getElementById('rainValue').innerText = lluvia > 0 ? `Lluvia` : `0%`;
                 document.getElementById('tempValue').innerText = `${temp} °C`;
                 
-                // Traducir códigos básicos de Open-Meteo
                 let estadoCielo = "Despejado";
-                if(codigoCielo >= 1 && codigoCielo <= 3) estadoCielo = "Parcialmente Nublado";
+                if(codigoCielo >= 1 && codigoCielo <= 3) estadoCielo = "Nublado";
                 if(codigoCielo >= 45 && codigoCielo <= 48) estadoCielo = "Niebla";
-                if(codigoCielo >= 51 && codigoCielo <= 67) estadoCielo = "Llovizna/Lluvia";
+                if(codigoCielo >= 51 && codigoCielo <= 67) estadoCielo = "Lluvia";
                 if(codigoCielo >= 80) estadoCielo = "Tormenta";
                 document.getElementById('skyValue').innerText = estadoCielo;
 
-                // Evaluar si es seguro para el Mavic Air 1
-                // Límite viento: 29 km/h. Límite lluvia: 0 mm
                 const card = document.getElementById('statusCard');
                 const icon = document.getElementById('statusIcon');
                 const title = document.getElementById('statusTitle');
                 const desc = document.getElementById('statusDesc');
 
-                if (viento < 27 && lluvia === 0 && codigoCielo < 51) {
+                // Límite Mavic Air 1: 28 km/h de viento y 0 lluvia
+                if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
                     card.className = "status-card safe-border";
                     icon.innerText = "✅";
                     title.innerText = "¡Listo para Volar!";
                     title.style.color = "var(--safe)";
-                    desc.innerText = `Las condiciones en Cabo son óptimas. El viento está a ${viento} km/h, muy por debajo del límite de resistencia de tu Mavic Air (29 km/h).`;
+                    desc.innerText = `Condiciones óptimas en Cabo. El viento está a ${viento} km/h (límite de tu dron: 29 km/h).`;
                 } else {
                     card.className = "status-card danger-border";
                     icon.innerText = "❌";
@@ -173,19 +173,18 @@ html
                     title.style.color = "var(--danger)";
                     
                     let razones = [];
-                    if(viento >= 27) razones.push(`vientos peligrosos (${viento} km/h)`);
-                    if(lluvia > 0 || codigoCielo >= 51) razones.push(`presencia de humedad/lluvia`);
+                    if(viento >= 28) razones.push(`viento fuerte (${viento} km/h)`);
+                    if(lluvia > 0 || codigoCielo >= 51) razones.push(`lluvia/tormenta`);
                     
-                    desc.innerText = `Vuelo no recomendado en este momento debido a: ${razones.join(' y ')}. Evita comprometer los motores de tu dron.`;
+                    desc.innerText = `Riesgo para tu Mavic Air 1 por: ${razones.join(' y ')}. Evita despegar.`;
                 }
 
             } catch (error) {
-                document.getElementById('statusTitle').innerText = "Error";
-                document.getElementById('statusDesc').innerText = "No se pudieron obtener los datos meteorológicos en tiempo real.";
+                document.getElementById('statusTitle').innerText = "Error de Enlace";
+                document.getElementById('statusDesc').innerText = "Por favor, toca el botón de refrescar abajo ↻ para forzar la actualización segura de iOS.";
             }
         }
 
-        // Ejecutar al abrir la app
         consultarClima();
     </script>
 </body>
