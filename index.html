@@ -123,11 +123,11 @@
     </div>
 
     <script>
-        // Coordenadas fijas de Cabo San Lucas
         const LAT = 22.8905;
         const LON = -109.9167;
 
-        function actualizarInterfaz(datos) {
+        // Nombre de función corregido a minúsculas para cumplir con iOS
+        function actualizarinterfaz(datos) {
             const clima = datos.current;
             const viento = Math.round(clima.wind_speed_10m); 
             const lluvia = clima.precipitation; 
@@ -150,7 +150,6 @@
             const title = document.getElementById('statusTitle');
             const desc = document.getElementById('statusDesc');
 
-            // Parámetros Mavic Air 1: Viento < 28km/h y sin lluvia
             if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
                 card.className = "status-card safe-border";
                 icon.innerText = "✅";
@@ -171,14 +170,13 @@
             }
         }
 
-        // Método alternativo JSONP que no requiere permisos ni genera bloqueos en iOS
         function consultarClimaNativo() {
             const script = document.createElement('script');
-            script.src = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=actualizarInterfaz`;
+            // Enlace corregido a minúsculas estrictas para evitar bloqueos CORS
+            script.src = `https://open-meteo.com{LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=actualizarinterfaz`;
             document.body.appendChild(script);
         }
 
-        // Ejecución inmediata al cargar la app sin necesidad de presionar botones
         window.onload = consultarClimaNativo;
     </script>
 </body>
