@@ -110,13 +110,13 @@
     <div class="container">
         <div class="header">
             <h1>Mavic Air 1 Fly Status</h1>
-            <p id="localizacionTexto">Ubicación Inteligente — GPS</p>
+            <p id="localizacionTexto">Ubicación Inteligente — Red Satelital</p>
         </div>
 
         <div id="statusCard" class="status-card">
             <div id="statusIcon" class="status-icon">🌍</div>
-            <div id="statusTitle" class="status-title">GPS Inactivo</div>
-            <div id="statusDesc" class="status-desc">Presiona el botón azul para rastrear tu posición y calcular las ráfagas locales en tiempo real.</div>
+            <div id="statusTitle" class="status-title">Radar Listo</div>
+            <div id="statusDesc" class="status-desc">Presiona el botón azul para detectar tu zona y calcular las ráfagas en vivo.</div>
         </div>
 
         <div class="metrics-grid">
@@ -138,11 +138,11 @@
             </div>
         </div>
 
-        <button class="btn-update" onclick="localizarDispositivo()">Escanear Clima Local</button>
+        <button class="btn-update" onclick="localizarPorRed()">Escanear Clima Local</button>
     </div>
 
     <script>
-        // Función de respuesta global que procesará la información del satélite
+        // Función global que procesará el clima final recibido
         window.parsearClimaGlobal = function(datos) {
             const actual = datos.current;
             const viento = Math.round(actual.wind_speed_10m); 
@@ -166,13 +166,12 @@
             const title = document.getElementById('statusTitle');
             const desc = document.getElementById('statusDesc');
 
-            // Parámetros Mavic Air 1: viento inferior a 28 km/h y 0 lluvia
             if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
                 card.className = "status-card safe-border";
                 icon.innerText = "✅";
                 title.innerText = "¡Listo para Volar!";
                 title.style.color = "var(--safe)";
-                desc.innerText = `Las condiciones en tu ubicación son excelentes. El viento sopla a ${viento} km/h (Límite seguro de fábrica: 29 km/h).`;
+                desc.innerText = `Las condiciones en tu ubicación actual son excelentes. El viento está a ${viento} km/h (Límite seguro: 29 km/h).`;
             } else {
                 card.className = "status-card danger-border";
                 icon.innerText = "❌";
@@ -180,47 +179,37 @@
                 title.style.color = "var(--danger)";
                 
                 let riesgos = [];
-                if(viento >= 28) riesgos.push(`vientos fuertes de ${viento} km/h`);
-                if(lluvia > 0 || codigoCielo >= 51) riesgos.push(`presencia de agua/lluvia`);
+                if(viento >= 28) riesgos.push(`vientos de ${viento} km/h`);
+                if(lluvia > 0 || codigoCielo >= 51) riesgos.push(`lluvia/tormenta`);
                 
-                desc.innerText = `Riesgo detectado para tu dron en esta zona debido a: ${riesgos.join(' y ')}.`;
+                desc.innerText = `Riesgo detectado para tu Mavic Air 1 en esta ubicación debido a: ${riesgos.join(' y ')}.`;
             }
         };
 
-        function localizarDispositivo() {
-            const card = document.getElementById('statusCard');
+        // Función que detecta las coordenadas de tu red IP de forma compatible con Apple
+        window.parsearUbicacionIP = function(respuesta) {
+            const lat = parseFloat(respuesta.latitude).toFixed(4);
+            const lon = parseFloat(respuesta.longitude).toFixed(4);
+            const ciudad = respuesta.city || "Tu Ubicación";
+
+            document.getElementById('localizacionTexto').innerText = `Zona: ${ciudad} (${lat}, ${lon})`;
+            document.getElementById('statusDesc').innerText = "Conectando con el satélite del clima de tu área...";
+
+            // Inyectamos la petición de clima con las coordenadas dinámicas calculadas
+            const scriptClima = document.createElement('script');
+            scriptClima.src = `https://open-meteo.com{lat}&longitude=${lon}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=parsearClimaGlobal&nocache=${Date.now()}`;
+            document.body.appendChild(scriptClima);
+        };
+
+        function localizarPorRed() {
             document.getElementById('statusTitle').innerText = "Rastreando...";
             document.getElementById('statusIcon').innerText = "🛰️";
-            document.getElementById('statusDesc').innerText = "Estableciendo conexión con los satélites GPS de tu iPhone...";
+            document.getElementById('statusDesc').innerText = "Identificando tu localización geográfica por red segura...";
 
-            if (navigator.geolocation) {
-                // Solicita las coordenadas geográficas reales del iPhone en ese instante
-                navigator.geolocation.getCurrentPosition(function(posicion) {
-                    const latitud = posicion.coords.latitude.toFixed(4);
-                    const longitud = posicion.coords.longitude.toFixed(4);
-                    
-                    document.getElementById('localizacionTexto').innerText = `Coordenadas: ${latitud}, ${longitud}`;
-                    document.getElementById('statusDesc').innerText = "Descargando mediciones meteorológicas de tu área actual...";
-
-                    const scriptViejo = document.getElementById('scriptClimaDinamico');
-                    if (scriptViejo) scriptViejo.remove();
-
-                    // Envía la latitud y longitud dinámicas a la API pública
-                    const script = document.createElement('script');
-                    script.id = 'scriptClimaDinamico';
-                    script.src = `https://open-meteo.com{latitud}&longitude=${longitud}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=parsearClimaGlobal&nocache=${Date.now()}`;
-                    document.body.appendChild(script);
-
-                }, function(error) {
-                    card.className = "status-card danger-border";
-                    document.getElementById('statusIcon').innerText = "🔒";
-                    document.getElementById('statusTitle').innerText = "Acceso Denegado";
-                    document.getElementById('statusDesc').innerText = "Para usar el radar global en otras ciudades, activa los permisos de ubicación de Safari en los Ajustes de tu iPhone.";
-                });
-            } else {
-                document.getElementById('statusTitle').innerText = "No Soportado";
-                document.getElementById('statusDesc').innerText = "Tu navegador no es compatible con el rastreo satelital.";
-            }
+            // Consulta de ubicación IP nativa que evita el bloqueo de permisos de iOS
+            const scriptIP = document.createElement('script');
+            scriptIP.src = `https://ipapi.co`;
+            document.body.appendChild(scriptIP);
         }
     </script>
 </body>
