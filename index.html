@@ -12,7 +12,6 @@
             --text-muted: #808a9d;
             --safe: #10b981;
             --danger: #ef4444;
-            --warning: #f59e0b;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -104,7 +103,6 @@
         }
         .safe-border { border-color: var(--safe); }
         .danger-border { border-color: var(--danger); }
-        .warning-border { border-color: var(--warning); }
     </style>
 </head>
 <body>
@@ -112,59 +110,117 @@
     <div class="container">
         <div class="header">
             <h1>Mavic Air 1 Fly Status</h1>
-            <p>Cabo San Lucas — Radar de Control</p>
+            <p id="localizacionTexto">Ubicación Inteligente — GPS</p>
         </div>
 
         <div id="statusCard" class="status-card">
-            <div id="statusIcon" class="status-icon">🛸</div>
-            <div id="statusTitle" class="status-title">Sistema Listo</div>
-            <div id="statusDesc" class="status-desc">Presiona el botón azul para procesar las ráfagas y evaluar los riesgos de tu dron hoy y mañana.</div>
+            <div id="statusIcon" class="status-icon">🌍</div>
+            <div id="statusTitle" class="status-title">GPS Inactivo</div>
+            <div id="statusDesc" class="status-desc">Presiona el botón azul para rastrear tu posición y calcular las ráfagas locales en tiempo real.</div>
         </div>
 
         <div class="metrics-grid">
             <div class="metric-card">
-                <div class="metric-label">Viento Máx</div>
+                <div class="metric-label">Viento</div>
                 <div id="windValue" class="metric-value">-- km/h</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">Riesgo Lluvia</div>
+                <div class="metric-label">Lluvia</div>
                 <div id="rainValue" class="metric-value">--</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">Veredicto Hoy</div>
-                <div id="tempValue" class="metric-value">--</div>
+                <div class="metric-label">Temperatura</div>
+                <div id="tempValue" class="metric-value">-- °C</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">Veredicto Mañana</div>
+                <div class="metric-label">Estado Cielo</div>
                 <div id="skyValue" class="metric-value">--</div>
             </div>
         </div>
 
-        <button class="btn-update" onclick="procesarClimaLocal()">Evaluar Riesgos del Fin de Semana</button>
+        <button class="btn-update" onclick="localizarDispositivo()">Escanear Clima Local</button>
     </div>
 
     <script>
-        function procesarClimaLocal() {
-            // Datos reales del reporte meteorológico de Cabo San Lucas
-            const vientoMax = 38; // km/h (Ráfagas reales de la tormenta)
-            const riesgoLluvia = "ALTO (45%)";
+        // Función de respuesta global que procesará la información del satélite
+        window.parsearClimaGlobal = function(datos) {
+            const actual = datos.current;
+            const viento = Math.round(actual.wind_speed_10m); 
+            const lluvia = actual.precipitation; 
+            const temp = Math.round(actual.temperature_2m);
+            const codigoCielo = actual.weather_code;
+
+            document.getElementById('windValue').innerText = `${viento} km/h`;
+            document.getElementById('rainValue').innerText = lluvia > 0 ? `${lluvia} mm` : `0%`;
+            document.getElementById('tempValue').innerText = `${temp} °C`;
             
-            document.getElementById('windValue').innerText = `${vientoMax} km/h`;
-            document.getElementById('rainValue').innerText = riesgoLluvia;
-            document.getElementById('tempValue').innerText = "❌ PELIGRO";
-            document.getElementById('skyValue').innerText = "✅ EXCELENTE";
+            let estadoCielo = "Despejado";
+            if(codigoCielo >= 1 && codigoCielo <= 3) estadoCielo = "Nublado";
+            if(codigoCielo >= 45 && codigoCielo <= 48) estadoCielo = "Niebla";
+            if(codigoCielo >= 51 && codigoCielo <= 67) estadoCielo = "Lluvia";
+            if(codigoCielo >= 80) estadoCielo = "Tormenta";
+            document.getElementById('skyValue').innerText = estadoCielo;
 
             const card = document.getElementById('statusCard');
             const icon = document.getElementById('statusIcon');
             const title = document.getElementById('statusTitle');
             const desc = document.getElementById('statusDesc');
 
-            // Evaluación forzada del Mavic Air 1 (Límite fábrica 29 km/h)
-            card.className = "status-card danger-border";
-            icon.innerText = "🛑";
-            title.innerText = "¡NO VOLAR HOY!";
-            title.style.color = "var(--danger)";
-            desc.innerText = `Ráfagas peligrosas de hasta ${vientoMax} km/h detectadas en Cabo por la tarde. Superan por mucho el límite de tu Mavic Air 1 (29 km/h). El clima limpia por completo para mañana sábado por la mañana.`;
+            // Parámetros Mavic Air 1: viento inferior a 28 km/h y 0 lluvia
+            if (viento < 28 && lluvia === 0 && codigoCielo < 51) {
+                card.className = "status-card safe-border";
+                icon.innerText = "✅";
+                title.innerText = "¡Listo para Volar!";
+                title.style.color = "var(--safe)";
+                desc.innerText = `Las condiciones en tu ubicación son excelentes. El viento sopla a ${viento} km/h (Límite seguro de fábrica: 29 km/h).`;
+            } else {
+                card.className = "status-card danger-border";
+                icon.innerText = "❌";
+                title.innerText = "No Volar";
+                title.style.color = "var(--danger)";
+                
+                let riesgos = [];
+                if(viento >= 28) riesgos.push(`vientos fuertes de ${viento} km/h`);
+                if(lluvia > 0 || codigoCielo >= 51) riesgos.push(`presencia de agua/lluvia`);
+                
+                desc.innerText = `Riesgo detectado para tu dron en esta zona debido a: ${riesgos.join(' y ')}.`;
+            }
+        };
+
+        function localizarDispositivo() {
+            const card = document.getElementById('statusCard');
+            document.getElementById('statusTitle').innerText = "Rastreando...";
+            document.getElementById('statusIcon').innerText = "🛰️";
+            document.getElementById('statusDesc').innerText = "Estableciendo conexión con los satélites GPS de tu iPhone...";
+
+            if (navigator.geolocation) {
+                // Solicita las coordenadas geográficas reales del iPhone en ese instante
+                navigator.geolocation.getCurrentPosition(function(posicion) {
+                    const latitud = posicion.coords.latitude.toFixed(4);
+                    const longitud = posicion.coords.longitude.toFixed(4);
+                    
+                    document.getElementById('localizacionTexto').innerText = `Coordenadas: ${latitud}, ${longitud}`;
+                    document.getElementById('statusDesc').innerText = "Descargando mediciones meteorológicas de tu área actual...";
+
+                    const scriptViejo = document.getElementById('scriptClimaDinamico');
+                    if (scriptViejo) scriptViejo.remove();
+
+                    // Envía la latitud y longitud dinámicas a la API pública
+                    const script = document.createElement('script');
+                    script.id = 'scriptClimaDinamico';
+                    script.src = `https://open-meteo.com{latitud}&longitude=${longitud}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=parsearClimaGlobal&nocache=${Date.now()}`;
+                    document.body.appendChild(script);
+
+                }, function(error) {
+                    card.className = "status-card danger-border";
+                    document.getElementById('statusIcon').innerText = "🔒";
+                    document.getElementById('statusTitle').innerText = "Acceso Denegado";
+                    document.getElementById('statusDesc').innerText = "Para usar el radar global en otras ciudades, activa los permisos de ubicación de Safari en los Ajustes de tu iPhone.";
+                });
+            } else {
+                document.getElementById('statusTitle').innerText = "No Soportado";
+                document.getElementById('statusDesc').innerText = "Tu navegador no es compatible con el rastreo satelital.";
+            }
         }
     </script>
 </body>
