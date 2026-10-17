@@ -142,7 +142,6 @@
     </div>
 
     <script>
-        // Función global que procesará el clima final recibido
         window.parsearClimaGlobal = function(datos) {
             const actual = datos.current;
             const viento = Math.round(actual.wind_speed_10m); 
@@ -171,7 +170,7 @@
                 icon.innerText = "✅";
                 title.innerText = "¡Listo para Volar!";
                 title.style.color = "var(--safe)";
-                desc.innerText = `Las condiciones en tu ubicación actual son excelentes. El viento está a ${viento} km/h (Límite seguro: 29 km/h).`;
+                desc.innerText = `Las condiciones en tu ubicación son óptimas. El viento está a ${viento} km/h (Tu límite seguro de fábrica es 29 km/h).`;
             } else {
                 card.className = "status-card danger-border";
                 icon.innerText = "❌";
@@ -179,23 +178,20 @@
                 title.style.color = "var(--danger)";
                 
                 let riesgos = [];
-                if(viento >= 28) riesgos.push(`vientos de ${viento} km/h`);
-                if(lluvia > 0 || codigoCielo >= 51) riesgos.push(`lluvia/tormenta`);
+                if(viento >= 28) riesgos.push(`vientos Fuertes (${viento} km/h)`);
+                if(lluvia > 0 || codigoCielo >= 51) riesgos.push(`lluvia/humedad`);
                 
                 desc.innerText = `Riesgo detectado para tu Mavic Air 1 en esta ubicación debido a: ${riesgos.join(' y ')}.`;
             }
         };
 
-        // Función que detecta las coordenadas de tu red IP de forma compatible con Apple
         window.parsearUbicacionIP = function(respuesta) {
             const lat = parseFloat(respuesta.latitude).toFixed(4);
             const lon = parseFloat(respuesta.longitude).toFixed(4);
             const ciudad = respuesta.city || "Tu Ubicación";
 
             document.getElementById('localizacionTexto').innerText = `Zona: ${ciudad} (${lat}, ${lon})`;
-            document.getElementById('statusDesc').innerText = "Conectando con el satélite del clima de tu área...";
 
-            // Inyectamos la petición de clima con las coordenadas dinámicas calculadas
             const scriptClima = document.createElement('script');
             scriptClima.src = `https://open-meteo.com{lat}&longitude=${lon}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=parsearClimaGlobal&nocache=${Date.now()}`;
             document.body.appendChild(scriptClima);
@@ -206,8 +202,12 @@
             document.getElementById('statusIcon').innerText = "🛰️";
             document.getElementById('statusDesc').innerText = "Identificando tu localización geográfica por red segura...";
 
-            // Consulta de ubicación IP nativa que evita el bloqueo de permisos de iOS
+            const viejoScript = document.getElementById('scriptIP');
+            if (viejoScript) viejoScript.remove();
+
+            // Dirección corregida con la barra "/" en lugar de "=" para evitar congelamientos
             const scriptIP = document.createElement('script');
+            scriptIP.id = 'scriptIP';
             scriptIP.src = `https://ipapi.co`;
             document.body.appendChild(scriptIP);
         }
