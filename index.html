@@ -159,7 +159,6 @@
     </div>
 
     <script>
-        // Función 1: Recibe los datos climáticos finales del satélite
         window.recibirDatosClimaSatelital = function(datos) {
             const actual = datos.current;
             const viento = Math.round(actual.wind_speed_10m); 
@@ -203,7 +202,6 @@
             }
         };
 
-        // Función 2: Recibe las coordenadas de la ciudad escrita desde el buscador
         window.recibirCoordenadasBuscador = function(resultado) {
             const card = document.getElementById('statusCard');
             
@@ -215,6 +213,7 @@
                 return;
             }
 
+            // CORRECCIÓN AQUÍ: Tomamos el primer elemento [0] de la lista devuelta por el buscador
             const localizacion = resultado.results[0];
             const lat = localizacion.latitude;
             const lon = localizacion.longitude;
@@ -222,7 +221,6 @@
 
             document.getElementById('statusDesc').innerText = `Sincronizando satélites meteorológicos para: ${nombreCompleto}...`;
 
-            // Consultamos el clima usando las coordenadas de la ciudad buscada
             const scriptClima = document.createElement('script');
             scriptClima.src = `https://open-meteo.com{lat}&longitude=${lon}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=recibirDatosClimaSatelital&nocache=${Date.now()}`;
             document.body.appendChild(scriptClima);
@@ -236,11 +234,9 @@
             document.getElementById('statusIcon').innerText = "🛰️";
             document.getElementById('statusDesc').innerText = `Rastreando coordenadas globales de "${ciudad}"...`;
 
-            // Eliminamos scripts anteriores de la memoria
             const scriptViejo = document.getElementById('scriptGeocoding');
             if (scriptViejo) scriptViejo.remove();
 
-            // Consultamos las coordenadas de la ciudad mediante Geocoding JSONP limpio compatible con iOS
             const script = document.createElement('script');
             script.id = 'scriptGeocoding';
             script.src = `https://open-meteo.com{encodeURIComponent(ciudad)}&count=1&language=es&jsonp=recibirCoordenadasBuscador`;
