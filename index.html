@@ -40,6 +40,22 @@
             margin: 0;
             font-size: 0.9rem;
         }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        .search-input {
+            flex: 1;
+            background-color: var(--card-bg);
+            border: 1px solid #2e374a;
+            border-radius: 12px;
+            padding: 12px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
         .status-card {
             background-color: var(--card-bg);
             border-radius: 20px;
@@ -62,7 +78,6 @@
             color: var(--text-muted);
             font-size: 0.95rem;
             line-height: 1.4;
-            margin-bottom: 15px;
         }
         .metrics-grid {
             display: grid;
@@ -90,12 +105,11 @@
             background-color: #2563eb;
             color: white;
             border: none;
-            padding: 14px 20px;
+            padding: 12px 20px;
             border-radius: 12px;
             font-weight: bold;
             font-size: 1rem;
             cursor: pointer;
-            width: 100%;
             box-shadow: 0 4px 12px rgba(37,99,235,0.3);
         }
         .btn-update:active {
@@ -110,13 +124,18 @@
     <div class="container">
         <div class="header">
             <h1>Mavic Air 1 Fly Status</h1>
-            <p id="localizacionTexto">Ubicación Inteligente — Red Satelital</p>
+            <p>Radar de Vuelo Mundial Autónomo</p>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="ciudadInput" class="search-input" value="Cabo San Lucas" placeholder="Escribe una ciudad...">
+            <button class="btn-update" onclick="buscarCiudadGeocoding()">Buscar</button>
         </div>
 
         <div id="statusCard" class="status-card">
             <div id="statusIcon" class="status-icon">🌍</div>
             <div id="statusTitle" class="status-title">Radar Listo</div>
-            <div id="statusDesc" class="status-desc">Presiona el botón azul para detectar tu zona y calcular las ráfagas en vivo.</div>
+            <div id="statusDesc" class="status-desc">Escribe la ciudad a la que viajas y presiona "Buscar" para descargar el clima satelital en vivo.</div>
         </div>
 
         <div class="metrics-grid">
@@ -137,12 +156,11 @@
                 <div id="skyValue" class="metric-value">--</div>
             </div>
         </div>
-
-        <button class="btn-update" onclick="localizarPorRed()">Escanear Clima Local</button>
     </div>
 
     <script>
-        window.parsearClimaGlobal = function(datos) {
+        // Función 1: Recibe los datos climáticos finales del satélite
+        window.recibirDatosClimaSatelital = function(datos) {
             const actual = datos.current;
             const viento = Math.round(actual.wind_speed_10m); 
             const lluvia = actual.precipitation; 
@@ -170,7 +188,7 @@
                 icon.innerText = "✅";
                 title.innerText = "¡Listo para Volar!";
                 title.style.color = "var(--safe)";
-                desc.innerText = `Las condiciones en tu ubicación son óptimas. El viento está a ${viento} km/h (Tu límite seguro de fábrica es 29 km/h).`;
+                desc.innerText = `Las condiciones en esta zona son excelentes para tu Mavic Air 1. El viento está a ${viento} km/h.`;
             } else {
                 card.className = "status-card danger-border";
                 icon.innerText = "❌";
@@ -178,38 +196,55 @@
                 title.style.color = "var(--danger)";
                 
                 let riesgos = [];
-                if(viento >= 28) riesgos.push(`vientos Fuertes (${viento} km/h)`);
-                if(lluvia > 0 || codigoCielo >= 51) riesgos.push(`lluvia/humedad`);
+                if(viento >= 28) riesgos.push(`vientos de ${viento} km/h`);
+                if(lluvia > 0 || codigoCielo >= 51) riesgos.push(`lluvia o tormenta`);
                 
-                desc.innerText = `Riesgo detectado para tu Mavic Air 1 en esta ubicación debido a: ${riesgos.join(' y ')}.`;
+                desc.innerText = `Riesgo detectado para tu dron en este punto debido a: ${riesgos.join(' y ')}. Evita despegar.`;
             }
         };
 
-        window.parsearUbicacionIP = function(respuesta) {
-            const lat = parseFloat(respuesta.latitude).toFixed(4);
-            const lon = parseFloat(respuesta.longitude).toFixed(4);
-            const ciudad = respuesta.city || "Tu Ubicación";
+        // Función 2: Recibe las coordenadas de la ciudad escrita desde el buscador
+        window.recibirCoordenadasBuscador = function(resultado) {
+            const card = document.getElementById('statusCard');
+            
+            if (!resultado.results || resultado.results.length === 0) {
+                card.className = "status-card danger-border";
+                document.getElementById('statusIcon').innerText = "❓";
+                document.getElementById('statusTitle').innerText = "No Encontrada";
+                document.getElementById('statusDesc').innerText = "No pudimos localizar esa ciudad. Revisa cómo está escrita e intenta de nuevo.";
+                return;
+            }
 
-            document.getElementById('localizacionTexto').innerText = `Zona: ${ciudad} (${lat}, ${lon})`;
+            const localizacion = resultado.results[0];
+            const lat = localizacion.latitude;
+            const lon = localizacion.longitude;
+            const nombreCompleto = `${localizacion.name}, ${localizacion.country}`;
 
+            document.getElementById('statusDesc').innerText = `Sincronizando satélites meteorológicos para: ${nombreCompleto}...`;
+
+            // Consultamos el clima usando las coordenadas de la ciudad buscada
             const scriptClima = document.createElement('script');
-            scriptClima.src = `https://open-meteo.com{lat}&longitude=${lon}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=parsearClimaGlobal&nocache=${Date.now()}`;
+            scriptClima.src = `https://open-meteo.com{lat}&longitude=${lon}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&jsonp=recibirDatosClimaSatelital&nocache=${Date.now()}`;
             document.body.appendChild(scriptClima);
         };
 
-        function localizarPorRed() {
-            document.getElementById('statusTitle').innerText = "Rastreando...";
+        function buscarCiudadGeocoding() {
+            const ciudad = document.getElementById('ciudadInput').value.trim();
+            if (!ciudad) return;
+
+            document.getElementById('statusTitle').innerText = "Buscando...";
             document.getElementById('statusIcon').innerText = "🛰️";
-            document.getElementById('statusDesc').innerText = "Identificando tu localización geográfica por red segura...";
+            document.getElementById('statusDesc').innerText = `Rastreando coordenadas globales de "${ciudad}"...`;
 
-            const viejoScript = document.getElementById('scriptIP');
-            if (viejoScript) viejoScript.remove();
+            // Eliminamos scripts anteriores de la memoria
+            const scriptViejo = document.getElementById('scriptGeocoding');
+            if (scriptViejo) scriptViejo.remove();
 
-            // Dirección corregida con la barra "/" en lugar de "=" para evitar congelamientos
-            const scriptIP = document.createElement('script');
-            scriptIP.id = 'scriptIP';
-            scriptIP.src = `https://ipapi.co`;
-            document.body.appendChild(scriptIP);
+            // Consultamos las coordenadas de la ciudad mediante Geocoding JSONP limpio compatible con iOS
+            const script = document.createElement('script');
+            script.id = 'scriptGeocoding';
+            script.src = `https://open-meteo.com{encodeURIComponent(ciudad)}&count=1&language=es&jsonp=recibirCoordenadasBuscador`;
+            document.body.appendChild(script);
         }
     </script>
 </body>
